@@ -7,6 +7,8 @@ name = "pypi"
 pandas = "*"
 beautifulsoup4 = "*"
 requests = "*"
+datapackage = "*"
+tables = "*"
 
 [dev-packages]
 
