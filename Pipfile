@@ -7,8 +7,14 @@ name = "pypi"
 pandas = "*"
 beautifulsoup4 = "*"
 requests = "*"
-datapackage = "*"
-tables = "*"
+#datapackage = "*"
+#tables = "*"
+#fuzzywuzzy = "*"
+#python-Levenshtein = "*"
+googlemaps = "*"
+google-auth = "*"
+#gspread = "*"
+pygsheets = "*"
 
 [dev-packages]
 

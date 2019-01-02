@@ -8,3 +8,4 @@ import requests
 page = requests.get('https://www.sweetmarias.com/green-coffee.html')
 c = page.content
 s = BeautifulSoup(c, 'html.parser')
+
