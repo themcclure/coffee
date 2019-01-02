@@ -6,6 +6,7 @@ import googlemaps
 import pickle
 import logging
 import datetime
+import json
 # import gspread
 import pygsheets
 import pandas as pd
@@ -24,8 +25,10 @@ logger = logging.getLogger('geocoder')
 logger.setLevel(20)
 
 # configure google API access
-google_api_key = 'AIzaSyCWVfstyWmS0ZbOCu1R6iP8Wr_gXeuw6qg'
-gmap = googlemaps.Client(key=google_api_key)
+keyfile = open('keys.json', 'r')
+api_keys = json.load(keyfile)
+google_maps_api_key = api_keys['google_map']
+gmap = googlemaps.Client(key=google_maps_api_key)
 
 # configure google docs access
 # credentials = service_account.Credentials.from_service_account_file('./hero.json')
