@@ -7,13 +7,15 @@ import pickle
 import logging
 import datetime
 import json
-# import gspread
+import os
 import pygsheets
 import pandas as pd
-# import google.auth
-# from google.oauth2 import service_account
 from pathlib import Path
+import matplotlib as mpl
+import coffee
 
+mpl.use('TkAgg')
+import seaborn as sns
 
 # general config items
 geocache_file = Path('geocache.pkl')
@@ -31,27 +33,26 @@ google_maps_api_key = api_keys['google_map']
 gmap = googlemaps.Client(key=google_maps_api_key)
 
 # configure google docs access
-# credentials = service_account.Credentials.from_service_account_file('./hero.json')
-scope = ['https://spreadsheets.google.com/feeds']
+# scope = ['https://spreadsheets.google.com/feeds']
 client = pygsheets.authorize(service_file='./hero.json')
 coffee_doc_id = '1-JCMcy_NHR8CGw9eDCllpZ1gnbSzinH4riPSWqxC_mw'
 coffee_doc = client.open_by_key(coffee_doc_id)
 ws = coffee_doc.worksheet_by_title('cupping dimensions')
 wsdata = ws.get_as_df()
-beans = wsdata[wsdata['Coffee bean'] != '']['Coffee bean']
-coffee_sources = beans.tolist()
-# coffee_sources = [
-#     'Ethiopia Agaro Kedamai Cooperative',
-#     'Costa Rica Chirripo La Fila'
-# ]
+beans = wsdata[wsdata['Coffee bean'] != ''][['Coffee bean', 'Manual Location']]
+
 
 if __name__ == '__main__':
     start = datetime.datetime.now()
     last_checkpoint = datetime.datetime.now()
+    refresh_cache = os.getenv('REFRESH_CACHE', 0)
 
     # load the already geocoded item cache:
     if not geocache_file.exists():
         logger.warning(f'GeoCache file not found: {geocache_file}')
+        geocache = dict()
+    elif refresh_cache:
+        logger.warning(f'Forcing GeoCache refresh of: {geocache_file}')
         geocache = dict()
     else:
         infile = open(geocache_file, 'rb')
@@ -59,11 +60,15 @@ if __name__ == '__main__':
         infile.close()
 
     num_geocoded = 0
-    for source in coffee_sources:
+    for index, sources in beans.iterrows():
+        source = sources['Coffee bean']
+        best_location = source
+        if sources['Manual Location'] != '':
+            best_location = sources['Manual Location']
         if source not in geocache:
             logger.info(f'Cache did not contain {source}, so fetching it from the API.')
             num_geocoded += 1
-            places = gmap.geocode(source)
+            places = gmap.geocode(best_location)
             if len(places) == 0:
                 logger.warning(f'Found ZERO matches for {source}, so skipping it.')
                 continue
@@ -84,6 +89,9 @@ if __name__ == '__main__':
                 coded['state'] = ''
                 coded['region'] = ''
                 coded['place'] = ''
+                coded['latitude'] = ''
+                coded['longitude'] = ''
+                coded['elevation_m'] = ''
 
                 country = [item['long_name'] for item in place['address_components'] if 'country' in item['types']]
                 if len(country) > 0:
@@ -101,6 +109,10 @@ if __name__ == '__main__':
                     coded['place'] = place['address_components'][0]['long_name']
                 else:
                     coded['place'] = place['formatted_address']
+                if 'location' in place['geometry']:
+                    coded['latitude'] = place['geometry']['location']['lat']
+                    coded['longitude'] = place['geometry']['location']['lng']
+                    coded['elevation_m'] = f"{gmap.elevation((coded['latitude'], coded['longitude']))[0]['elevation']:.3f}"
             except Exception as e:
                 logger.warning(f'Couldn\'t find the plus code in {source} - error was {e}, got as far as {coded} items')
 
@@ -117,12 +129,13 @@ if __name__ == '__main__':
     last_checkpoint = datetime.datetime.now()
 
     # assemble the data as a df and save it to the google sheet in a new tab
-    tab_rows = ['source', 'place_url', 'country', 'country_code', 'state', 'region', 'place']
+    tab_rows = ['source', 'place_url', 'country', 'country_code', 'state', 'region', 'place', 'latitude', 'longitude', 'elevation_m']
     df = pd.DataFrame(columns=tab_rows)
     for key, item in geocache.items():
         df = df.append({'source': item['source'], 'place_url': item['place_url'], 'country': item['country'],
                         'country_code': item['country_code'], 'state': item['state'], 'region': item['region'],
-                        'place': item['place']}, ignore_index=True)
+                        'place': item['place'], 'latitude': item['latitude'], 'longitude': item['longitude'],
+                        'elevation_m': item['elevation_m']}, ignore_index=True)
 
     # save the data into a new tab in the sheet
     outws = coffee_doc.worksheet_by_title('geo results')

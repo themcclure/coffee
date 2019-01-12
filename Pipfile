@@ -15,6 +15,9 @@ googlemaps = "*"
 google-auth = "*"
 #gspread = "*"
 pygsheets = "*"
+seaborn = "*"
+cufflinks = "*"
+gmaps = "*"
 
 [dev-packages]
 
