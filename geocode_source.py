@@ -2,130 +2,33 @@
 Takes in an export of the roast log, and from the coffee growing locations saves the geooded data, including a URL to
 find the place on a map.
 """
-import googlemaps
-import pickle
-import logging
 import datetime
-import json
 import os
-import pygsheets
+# import googlemaps
+# import pickle
+# import logging
+# import json
+# import pygsheets
 import pandas as pd
 from pathlib import Path
-import matplotlib as mpl
+# import matplotlib as mpl
 import coffee
-
-mpl.use('TkAgg')
+from coffee.config import conf
+# mpl.use('TkAgg')
 import seaborn as sns
-
-# general config items
-geocache_file = Path('geocache.pkl')
-
-# set up logging
-log_format = '%(asctime)s:%(levelname)s:%(funcName)s:%(lineno)d: %(message)s'
-logging.basicConfig(format=log_format, datefmt='%m/%d/%Y %H:%M:%S')
-logger = logging.getLogger('geocoder')
-logger.setLevel(20)
-
-# configure google API access
-keyfile = open('keys.json', 'r')
-api_keys = json.load(keyfile)
-google_maps_api_key = api_keys['google_map']
-gmap = googlemaps.Client(key=google_maps_api_key)
-
-# configure google docs access
-# scope = ['https://spreadsheets.google.com/feeds']
-client = pygsheets.authorize(service_file='./hero.json')
-coffee_doc_id = '1-JCMcy_NHR8CGw9eDCllpZ1gnbSzinH4riPSWqxC_mw'
-coffee_doc = client.open_by_key(coffee_doc_id)
-ws = coffee_doc.worksheet_by_title('cupping dimensions')
-wsdata = ws.get_as_df()
-beans = wsdata[wsdata['Coffee bean'] != ''][['Coffee bean', 'Manual Location']]
 
 
 if __name__ == '__main__':
     start = datetime.datetime.now()
-    last_checkpoint = datetime.datetime.now()
-    refresh_cache = os.getenv('REFRESH_CACHE', 0)
 
-    # load the already geocoded item cache:
-    if not geocache_file.exists():
-        logger.warning(f'GeoCache file not found: {geocache_file}')
-        geocache = dict()
-    elif refresh_cache:
-        logger.warning(f'Forcing GeoCache refresh of: {geocache_file}')
-        geocache = dict()
-    else:
-        infile = open(geocache_file, 'rb')
-        geocache = pickle.load(infile)
-        infile.close()
+    # setup
+    conf.configure_env("Prod", "./data")
+    conf.import_keys()
+    if os.getenv('REFRESH_CACHE', 0):
+        conf.runtime.force_refresh = True
 
-    num_geocoded = 0
-    for index, sources in beans.iterrows():
-        source = sources['Coffee bean']
-        best_location = source
-        if sources['Manual Location'] != '':
-            best_location = sources['Manual Location']
-        if source not in geocache:
-            logger.info(f'Cache did not contain {source}, so fetching it from the API.')
-            num_geocoded += 1
-            places = gmap.geocode(best_location)
-            if len(places) == 0:
-                logger.warning(f'Found ZERO matches for {source}, so skipping it.')
-                continue
-            elif len(places) > 1:
-                logger.warning(f'Found {len(places)} different matches for {source}, proceeding with the first match.')
-            place = places[0]
-            coded = dict()
-            try:
-                coded['source'] = source
-                place_id = place['place_id']
-                coded['place_id'] = place_id
-                coded['place_url'] = f'https://www.google.com/maps/place/?q=place_id:{place_id}'
-                logger.debug(f'Found {place_id}')
-                coded['raw'] = place
-                coded['updated'] = datetime.datetime.now()
-                coded['country'] = ''
-                coded['country_code'] = ''
-                coded['state'] = ''
-                coded['region'] = ''
-                coded['place'] = ''
-                coded['latitude'] = ''
-                coded['longitude'] = ''
-                coded['elevation_m'] = ''
-
-                country = [item['long_name'] for item in place['address_components'] if 'country' in item['types']]
-                if len(country) > 0:
-                    coded['country'] = country[0]
-                country_code = [item['short_name'] for item in place['address_components'] if 'country' in item['types']]
-                if len(country_code) > 0:
-                    coded['country_code'] = country_code[0]
-                state = [item['long_name'] for item in place['address_components'] if 'administrative_area_level_1' in item['types']]
-                if len(state) > 0:
-                    coded['state'] = state[0]
-                region = [item['long_name'] for item in place['address_components'] if 'administrative_area_level_2' in item['types']]
-                if len(region) > 0:
-                    coded['region'] = region[0]
-                if 'locality' in place['address_components'][0]:
-                    coded['place'] = place['address_components'][0]['long_name']
-                else:
-                    coded['place'] = place['formatted_address']
-                if 'location' in place['geometry']:
-                    coded['latitude'] = place['geometry']['location']['lat']
-                    coded['longitude'] = place['geometry']['location']['lng']
-                    coded['elevation_m'] = f"{gmap.elevation((coded['latitude'], coded['longitude']))[0]['elevation']:.3f}"
-            except Exception as e:
-                logger.warning(f'Couldn\'t find the plus code in {source} - error was {e}, got as far as {coded} items')
-
-            geocache[source] = coded
-        else:
-            logger.info(f'Found {source} in cache, so using the cached version.')
-
-    # update the cache
-    outfile = open(geocache_file, 'wb')
-    pickle.dump(geocache, outfile)
-    outfile.close()
-
-    logger.info(f'Geocoded {num_geocoded} items in {(datetime.datetime.now() - last_checkpoint).total_seconds():.2f}s')
+    # TODO: load geocache
+    geocache = coffee.geocoding.process_locations()
     last_checkpoint = datetime.datetime.now()
 
     # assemble the data as a df and save it to the google sheet in a new tab
@@ -138,8 +41,10 @@ if __name__ == '__main__':
                         'elevation_m': item['elevation_m']}, ignore_index=True)
 
     # save the data into a new tab in the sheet
+    client = conf.google.get_client()
+    coffee_doc = client.open_by_key(conf.runtime.coffee_doc_id)
     outws = coffee_doc.worksheet_by_title('geo results')
     outws.set_dataframe(df, 'A1', fit=True)
 
-    logger.info(f'Saved {len(df)} items to Google Sheets in {(datetime.datetime.now() - last_checkpoint).total_seconds():.2f}s')
-    logger.info(f'For a total runtime of {(datetime.datetime.now() - start).total_seconds():.2f}s')
+    conf.logger.info(f'Saved {len(df)} items to Google Sheets in {(datetime.datetime.now() - last_checkpoint).total_seconds():.2f}s')
+    conf.logger.info(f'For a total runtime of {(datetime.datetime.now() - start).total_seconds():.2f}s')
