@@ -4,18 +4,12 @@ find the place on a map.
 """
 import datetime
 import os
-# import googlemaps
-# import pickle
-# import logging
-# import json
-# import pygsheets
 import pandas as pd
-from pathlib import Path
-# import matplotlib as mpl
 import coffee
 from coffee.config import conf
+# import matplotlib as mpl
 # mpl.use('TkAgg')
-import seaborn as sns
+# import seaborn as sns
 
 
 if __name__ == '__main__':
@@ -27,7 +21,6 @@ if __name__ == '__main__':
     if os.getenv('REFRESH_CACHE', 0):
         conf.runtime.force_refresh = True
 
-    # TODO: load geocache
     geocache = coffee.geocoding.process_locations()
     last_checkpoint = datetime.datetime.now()
 
