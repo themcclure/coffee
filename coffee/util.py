@@ -1,6 +1,8 @@
 """
 Utility functions that help with the coffee analytics
 """
+__author__ = "themcclure"
+
 import datetime
 import json
 import os

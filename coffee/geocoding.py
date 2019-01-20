@@ -1,6 +1,8 @@
 """
 Module for doing all the heavy lifting for geocoding the location data from the coffee data
 """
+__author__ = "themcclure"
+
 from .config import conf
 from . import util
 import pickle

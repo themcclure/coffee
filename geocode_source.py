@@ -2,6 +2,8 @@
 Takes in an export of the roast log, and from the coffee growing locations saves the geooded data, including a URL to
 find the place on a map.
 """
+__author__ = "themcclure"
+
 import datetime
 import os
 import pandas as pd

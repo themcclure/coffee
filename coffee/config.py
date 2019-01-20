@@ -58,7 +58,7 @@ class Conf:
         log_format = '%(asctime)s:%(levelname)s:%(funcName)s:%(lineno)d: %(message)s'
         logging.basicConfig(format=log_format, datefmt='%m/%d/%Y %H:%M:%S')
         logger = logging.getLogger('coffee')
-        logger.setLevel(20)
+        logger.setLevel('INFO')
 
     ##########
     # SECTION: Helper functions
