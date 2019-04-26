@@ -38,6 +38,9 @@ class Conf:
             Returns the active connection to the Google Docs API, refreshing it if needed
             :return: an active
             """
+            if not self.cred_file:
+                # there's no authorized connection possible
+                return None
             if not self.client:
                 self.client = pygsheets.authorize(service_file=self.cred_file)
             return self.client
