@@ -18,7 +18,12 @@ pygsheets = "*"
 seaborn = "*"
 cufflinks = "*"
 gmaps = "*"
-jinja2 = ">=2.10.1"
+jinja2 = ">=2.11.3"
+# security updates, and they're only here to address vulnerabilities
+rsa = ">=4.1"
+notebook = ">=6.1.5"
+httplib2 = ">=0.19.0"
+bleach = ">=3.3.0"
 
 [dev-packages]
 
